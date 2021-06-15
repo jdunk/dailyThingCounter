@@ -1,24 +1,32 @@
-const { getCurrEvent } = require('./gcal.js');
+const { handleGetRequest, handleAddRequest, errorResponse } = require('./controllers.js');
 
-exports.handler = async (event, context) => {
-  console.log({ event, context });
+exports.handler = async (eventInput, context) => {
+  const { action, thing, num } = eventInput;
 
-  let res;
+  // Global input validation -->
+
+  if (!['get','add'].includes(action)) {
+    return errorResponse('Invalid request: value of "action" must be: "add" or "get"');
+  }
+  if (!thing?.match(/^[a-zA-Z]/)) {
+    return errorResponse('Invalid request: "thing" param should be one or more words');
+  }
 
   try {
-    res = await getCurrEvent();
-    console.log({
-      getCurrentEvent: res,
-    })
+    // Dispatcher -->
+
+    if (action === 'get') {
+      return await handleGetRequest(thing);
+    }
+
+    if (action === 'add') {
+      return await handleAddRequest(num, thing);
+    }
   }
   catch(e) {
-    console.error(`There was an error: ${e.message}`)
+    // Error handling -->
+    const errorMsg = `There was an error: ${e?.message}`;
+    console.error(errorMsg);
+    return errorResponse(errorMsg, 500);
   }
-
-  return {
-    statusCode: 200,
-    body: JSON.stringify({
-      data: res?.data?.items
-    }, null, 2),
-  };
 };

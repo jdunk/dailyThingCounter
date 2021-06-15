@@ -1,22 +1,25 @@
+const gcalendar = require('@googleapis/calendar')
 const config = require('./config/default.js')
-const { google } = require('googleapis');
-const { getStartOfToday, getStartOfTomorrow } = require('./date-fns.js');
 
-const scopes = ['https://www.googleapis.com/auth/calendar']
+const {
+  getStartOfToday,
+  getStartOfTomorrow,
+  getTodaysDate,
+  getTomorrowsDate,
+} = require('./date-fns.js');
 
-const auth = new google.auth.GoogleAuth({
+const auth = new gcalendar.auth.GoogleAuth({
   keyFile: './gauth.json',
-  scopes,
+  scopes: ['https://www.googleapis.com/auth/calendar'],
 })
 
-const gcal = google.calendar({ version: 'v3', auth })
+const gcal = gcalendar.calendar({ version: 'v3', auth })
 
-let currEvent;
+const getCurrentEventFromGCalEventsList = (eventsList, thingName) => {
+  if (!eventsList || !eventsList?.length) return
 
-const gcalEventsListProcess = (resp) => {
-  console.log(resp.data.items) // All data
   /*
-  const events = resp.data.items.map((ev) => ({
+  const events = eventsList.map((ev) => ({
     id: ev.id,
     summary: ev.summary,
     start: ev.start.dateTime || ev.start.date,
@@ -26,16 +29,22 @@ const gcalEventsListProcess = (resp) => {
   console.log(events)
   */
 
-  resp.data.items.forEach((ev) => {
-    const evNamePieces = ev.summary.split(' ');
+  let currEv = null;
 
-    if (evNamePieces.length >= 2 && evNamePieces[1] === config.defaultCountedThingType) {
-      currEvent = {
+  eventsList.forEach((ev) => {
+    const indexOfFirstSpace = ev.summary.indexOf(' ');
+
+    if (indexOfFirstSpace === -1) return;
+
+    if (ev.summary.substr(1 + indexOfFirstSpace) === thingName) {
+      currEv = {
         ...ev,
-        count: parseInt(evNamePieces[0], 10),
+        count: Number(ev.summary.substr(0, indexOfFirstSpace)) || 0,
       };
     }
   });
+
+  return currEv;
 };
 
 const getTodaysEvents = async () => {
@@ -52,14 +61,62 @@ const getTodaysEvents = async () => {
   return res?.data?.items;
 };
 
-const getCurrEvent = async (thingType = config.defaultCountedThingType) => {
+const getCurrEvent = async (thingName) => {
   const todaysEvents = await getTodaysEvents();
 
-  console.log({ todaysEvents })
+  return getCurrentEventFromGCalEventsList(todaysEvents, thingName)
+};
 
-  return todaysEvents;
+const createGCalEvent = async (num, thingName) => {
+  return await gcal.events.insert(
+    {
+      calendarId: config.calendarId,
+      resource: {
+        start: {
+          date: getTodaysDate(config.timezoneOffsetInMinutes),
+        },
+        end: {
+          date: getTomorrowsDate(config.timezoneOffsetInMinutes),
+        },
+        colorId: config.defaultEventColorId,
+        summary: `${num} ${thingName}`,
+        description: num
+      }
+    }
+  );
+};
+
+const updateGCalEvent = async (eventToUpdate, num, thingName) => {
+  return gcal.events.update(
+    {
+      calendarId: config.calendarId,
+      eventId: eventToUpdate.id,
+      resource: {
+        ...eventToUpdate,
+        summary: `${num + eventToUpdate.count} ${thingName}`,
+        description: !eventToUpdate.description ? num : `${eventToUpdate.description}+${num}`,
+      },
+    }
+  );
+};
+
+const addToCurrTotal = async (currEvent, num, thingName) => {
+  let resp;
+
+  if (!currEvent) {
+    resp = await createGCalEvent(num, thingName);
+  }
+  else {
+    resp = await updateGCalEvent(currEvent, num, thingName);
+  }
+
+  return {
+    ...resp.data,
+    count: Number(resp.data.summary.substr(0, resp.data.summary.indexOf(' '))),
+  }
 };
 
 module.exports = {
-  getCurrEvent
+  getCurrEvent,
+  addToCurrTotal,
 };

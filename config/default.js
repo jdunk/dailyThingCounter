@@ -1,7 +1,7 @@
 require('dotenv').config();
 
 module.exports = {
-  timezoneOffsetInMinutes: 8 * 60,
+  timezoneOffsetInMinutes: process.env.TZ_OFFSET_IN_MINUTES,
   calendarId: process.env.GCAL_CALENDAR_ID,
-  defaultCountedThingType: 'push ups',
+  defaultEventColorId: '11',
 };

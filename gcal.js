@@ -31,12 +31,16 @@ const getCurrentEventFromGCalEventsList = (eventsList, thingName) => {
 
   let currEv = null;
 
-  eventsList.forEach((ev) => {
+  const thingNameNoSpaces = thingName.replace(/\s/g, '');
+
+  eventsList.forEach(ev => {
     const indexOfFirstSpace = ev.summary.indexOf(' ');
 
     if (indexOfFirstSpace === -1) return;
 
-    if (ev.summary.substr(1 + indexOfFirstSpace) === thingName) {
+    const evThingName = ev.summary.substr(1 + indexOfFirstSpace);
+
+    if (evThingName.replace(/\s/g, '') === thingNameNoSpaces) {
       currEv = {
         ...ev,
         count: Number(ev.summary.substr(0, indexOfFirstSpace)) || 0,

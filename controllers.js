@@ -3,20 +3,20 @@ const { getCurrEvent, addToCurrTotal } = require('./gcal.js');
 function errorResponse(errorMessage, statusCode = 400) {
   return {
     statusCode,
-    body: JSON.stringify({
+    body: {
       error: {
         message: errorMessage
       }
-    }, null, 2),
+    },
   };
 }
 
 function successResponse(data, statusCode = 200) {
   return {
     statusCode,
-    body: JSON.stringify({
+    body: {
       data,
-    }, null, 2),
+    }
   };
 }
 
